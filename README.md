@@ -33,6 +33,8 @@ whisper-bench run -m MODEL -d DATASET [OPTIONS]
 | `-o, --output PATH` | Output directory | `benchmarks` |
 | `--no-gpu` | Disable GPU acceleration | |
 | `--run-name TEXT` | Custom run name | |
+| `--no-monitoring` | Disable hardware monitoring | |
+| `--monitor-interval INT` | Hardware sampling interval (ms) | `100` |
 
 ### Examples
 
@@ -67,7 +69,13 @@ Each benchmark run creates a directory with:
   "wer": 0.25,
   "cer": 0.10,
   "inference_time_ms": 1234.5,
-  "duration_ms": 3000
+  "duration_ms": 3000,
+  "hardware": {
+    "cpu_percent_mean": 78.5,
+    "cpu_percent_max": 95.2,
+    "memory_rss_peak_mb": 1245.3,
+    "cpu_temp_max_c": 65.0
+  }
 }
 ```
 
@@ -77,6 +85,18 @@ Each benchmark run creates a directory with:
 - **Mean/Median WER/CER** - Per-sample statistics
 - **P90/P95 WER** - Percentile metrics for outlier analysis
 - **Real-time Factor** - Inference time / audio duration (lower is faster)
+
+### Hardware Metrics
+
+When monitoring is enabled (default), the summary includes:
+
+- **System Info** - OS, CPU model, cores, memory, GPU (if NVIDIA)
+- **CPU Usage** - Mean and peak utilization across all samples
+- **Memory (RSS)** - Mean and peak resident set size
+- **CPU Temperature** - Maximum temperature during inference
+- **GPU Metrics** - Utilization, memory, temperature (NVIDIA only)
+
+Hardware monitoring works on x86 Linux and Raspberry Pi 5. Use `--no-monitoring` to disable.
 
 ## Sampling Strategies
 
@@ -115,3 +135,12 @@ For fair comparison, both ground truth and transcriptions are normalized:
 - [jiwer](https://github.com/jitsi/jiwer) - WER/CER calculation
 - [click](https://click.palletsprojects.com/) - CLI framework
 - [rich](https://rich.readthedocs.io/) - Progress bars and console output
+- [psutil](https://github.com/giampaolo/psutil) - Hardware monitoring
+
+### Optional
+
+For NVIDIA GPU monitoring:
+
+```bash
+uv sync --extra nvidia
+```

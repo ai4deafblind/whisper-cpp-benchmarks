@@ -1,14 +1,20 @@
 """Whisper.cpp subprocess execution."""
 
+from __future__ import annotations
+
 import json
 import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .config import WhisperConfig
 from .dataset import Sample
+
+if TYPE_CHECKING:
+    from .system import SampleHardwareMetrics
 
 
 @dataclass
@@ -20,12 +26,15 @@ class TranscriptionResult:
     inference_time_ms: float
     success: bool
     error: str | None = None
+    hardware_metrics: SampleHardwareMetrics | None = None
 
 
 def run_whisper(
     sample: Sample,
     config: WhisperConfig,
     work_dir: Path,
+    monitor_resources: bool = True,
+    monitor_interval_ms: int = 100,
 ) -> TranscriptionResult:
     """Run whisper-cli on a single sample."""
     output_base = work_dir / sample.clip_id.replace(".mp3", "").replace(".wav", "")
@@ -45,9 +54,20 @@ def run_whisper(
     if config.no_gpu:
         cmd.append("-ng")
 
+    # Set up resource monitoring if enabled
+    monitor = None
+    hardware_metrics = None
+    if monitor_resources:
+        from .system import ResourceMonitor
+
+        monitor = ResourceMonitor(interval_ms=monitor_interval_ms)
+
     start_time = time.perf_counter()
 
     try:
+        if monitor:
+            monitor.start()
+
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -56,6 +76,10 @@ def run_whisper(
         )
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
+        if monitor:
+            monitor.stop()
+            hardware_metrics = monitor.get_metrics()
+
         if result.returncode != 0:
             return TranscriptionResult(
                 clip_id=sample.clip_id,
@@ -63,6 +87,7 @@ def run_whisper(
                 inference_time_ms=elapsed_ms,
                 success=False,
                 error=f"whisper-cli failed: {result.stderr}",
+                hardware_metrics=hardware_metrics,
             )
 
         # Parse JSON output
@@ -74,6 +99,7 @@ def run_whisper(
                 inference_time_ms=elapsed_ms,
                 success=False,
                 error=f"JSON output not found: {json_path}",
+                hardware_metrics=hardware_metrics,
             )
 
         with open(json_path) as f:
@@ -92,23 +118,32 @@ def run_whisper(
             transcription=transcription,
             inference_time_ms=elapsed_ms,
             success=True,
+            hardware_metrics=hardware_metrics,
         )
 
     except subprocess.TimeoutExpired:
         elapsed_ms = (time.perf_counter() - start_time) * 1000
+        if monitor:
+            monitor.stop()
+            hardware_metrics = monitor.get_metrics()
         return TranscriptionResult(
             clip_id=sample.clip_id,
             transcription="",
             inference_time_ms=elapsed_ms,
             success=False,
             error="Timeout after 300 seconds",
+            hardware_metrics=hardware_metrics,
         )
     except Exception as e:
         elapsed_ms = (time.perf_counter() - start_time) * 1000
+        if monitor:
+            monitor.stop()
+            hardware_metrics = monitor.get_metrics()
         return TranscriptionResult(
             clip_id=sample.clip_id,
             transcription="",
             inference_time_ms=elapsed_ms,
             success=False,
             error=str(e),
+            hardware_metrics=hardware_metrics,
         )

@@ -1,10 +1,16 @@
 """WER/CER calculation using jiwer."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import jiwer
 
 from .normalize import normalize_text
+
+if TYPE_CHECKING:
+    from .system import AggregateHardwareMetrics
 
 
 @dataclass
@@ -47,6 +53,7 @@ class AggregateMetrics:
     total_duration_ms: float
     total_inference_ms: float
     real_time_factor: float
+    hardware: AggregateHardwareMetrics | None = None
 
 
 def compute_sample_metrics(

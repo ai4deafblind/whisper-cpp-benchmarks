@@ -1,8 +1,11 @@
 """JSON/JSONL report generation."""
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.panel import Panel
@@ -11,12 +14,16 @@ from rich.table import Table
 from .config import BenchmarkConfig
 from .metrics import AggregateMetrics, SampleMetrics
 
+if TYPE_CHECKING:
+    from .system import SampleHardwareMetrics, SystemInfo
+
 
 def write_sample_result(
     path: Path,
     metrics: SampleMetrics,
     inference_time_ms: float,
     duration_ms: float | None,
+    hardware_metrics: SampleHardwareMetrics | None = None,
 ) -> None:
     """Append a single sample result to JSONL file."""
     record = {
@@ -35,6 +42,8 @@ def write_sample_result(
         "inference_time_ms": inference_time_ms,
         "duration_ms": duration_ms,
     }
+    if hardware_metrics:
+        record["hardware"] = asdict(hardware_metrics)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -60,9 +69,10 @@ def write_summary(
     path: Path,
     config: BenchmarkConfig,
     aggregate: AggregateMetrics,
+    system_info: SystemInfo | None = None,
 ) -> None:
     """Write summary JSON with aggregate metrics and config."""
-    summary = {
+    summary: dict = {
         "config": {
             "model_path": str(config.whisper.model_path),
             "language": config.whisper.language,
@@ -77,6 +87,25 @@ def write_summary(
         },
         "metrics": asdict(aggregate),
     }
+    if system_info:
+        summary["system"] = {
+            "os": f"{system_info.os_name} {system_info.os_version}",
+            "cpu": {
+                "model": system_info.cpu.model,
+                "cores_physical": system_info.cpu.cores_physical,
+                "cores_logical": system_info.cpu.cores_logical,
+            },
+            "memory_gb": round(system_info.memory_total_gb, 1),
+            "gpu": (
+                {
+                    "name": system_info.gpu.name,
+                    "memory_mb": round(system_info.gpu.memory_total_mb, 0),
+                    "driver_version": system_info.gpu.driver_version,
+                }
+                if system_info.gpu
+                else None
+            ),
+        }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
@@ -112,6 +141,23 @@ def print_summary(aggregate: AggregateMetrics, console: Console) -> None:
             f"{aggregate.total_inference_ms / 1000:.1f}s"
         )
         table.add_row("Real-time Factor", f"{aggregate.real_time_factor:.2f}x")
+
+    # Hardware metrics section
+    if aggregate.hardware:
+        table.add_row("", "")
+        table.add_row("Mean CPU Usage", f"{aggregate.hardware.cpu_percent_mean:.1f}%")
+        table.add_row("Peak CPU Usage", f"{aggregate.hardware.cpu_percent_max:.1f}%")
+        table.add_row("Peak Memory (RSS)", f"{aggregate.hardware.memory_rss_peak_mb:,.0f} MB")
+        if aggregate.hardware.cpu_temp_max_c is not None:
+            table.add_row("Max CPU Temperature", f"{aggregate.hardware.cpu_temp_max_c:.1f}\u00b0C")
+        if aggregate.hardware.gpu_utilization_mean is not None:
+            table.add_row("Mean GPU Usage", f"{aggregate.hardware.gpu_utilization_mean:.1f}%")
+        if aggregate.hardware.gpu_utilization_max is not None:
+            table.add_row("Peak GPU Usage", f"{aggregate.hardware.gpu_utilization_max:.1f}%")
+        if aggregate.hardware.gpu_memory_peak_mb is not None:
+            table.add_row("Peak GPU Memory", f"{aggregate.hardware.gpu_memory_peak_mb:,.0f} MB")
+        if aggregate.hardware.gpu_temp_max_c is not None:
+            table.add_row("Max GPU Temperature", f"{aggregate.hardware.gpu_temp_max_c:.1f}\u00b0C")
 
     console.print()
     console.print(table)

@@ -31,6 +31,12 @@ from .report import (
     write_summary,
 )
 from .runner import run_whisper
+from .system import (
+    SampleHardwareMetrics,
+    SystemInfo,
+    compute_aggregate_hardware_metrics,
+    get_system_info,
+)
 
 console = Console()
 
@@ -107,6 +113,17 @@ def main() -> None:
     default=None,
     help="Custom run name for output directory",
 )
+@click.option(
+    "--no-monitoring",
+    is_flag=True,
+    help="Disable hardware monitoring",
+)
+@click.option(
+    "--monitor-interval",
+    type=int,
+    default=100,
+    help="Hardware monitoring sampling interval in ms [default: 100]",
+)
 def run(
     model: Path,
     dataset: Path,
@@ -119,6 +136,8 @@ def run(
     output: Path,
     no_gpu: bool,
     run_name: str | None,
+    no_monitoring: bool,
+    monitor_interval: int,
 ) -> None:
     """Run benchmark against Common Voice dataset."""
     try:
@@ -155,11 +174,22 @@ def run(
     results_path = run_dir / "results.jsonl"
     summary_path = run_dir / "summary.json"
 
+    # Collect system info if monitoring is enabled
+    system_info: SystemInfo | None = None
+    monitor_resources = not no_monitoring
+    if monitor_resources:
+        system_info = get_system_info()
+
     console.print(f"[bold]Model:[/bold] {model}")
     console.print(f"[bold]Dataset:[/bold] {dataset}")
     console.print(f"[bold]Split:[/bold] {split}")
     console.print(f"[bold]Strategy:[/bold] {strategy}")
     console.print(f"[bold]Output:[/bold] {run_dir}")
+    if system_info:
+        console.print(f"[bold]CPU:[/bold] {system_info.cpu.model}")
+        console.print(f"[bold]Memory:[/bold] {system_info.memory_total_gb:.1f} GB")
+        if system_info.gpu:
+            console.print(f"[bold]GPU:[/bold] {system_info.gpu.name}")
     console.print()
 
     # Load samples
@@ -175,6 +205,7 @@ def run(
 
     # Run transcription
     sample_metrics: list[SampleMetrics] = []
+    hardware_metrics_list: list[SampleHardwareMetrics] = []
     durations: list[float | None] = []
     inference_times: list[float] = []
     failed_count = 0
@@ -194,9 +225,19 @@ def run(
             task = progress.add_task("Transcribing...", total=len(dataset_samples))
 
             for sample in dataset_samples:
-                result = run_whisper(sample, whisper_config, work_path)
+                result = run_whisper(
+                    sample,
+                    whisper_config,
+                    work_path,
+                    monitor_resources=monitor_resources,
+                    monitor_interval_ms=monitor_interval,
+                )
                 inference_times.append(result.inference_time_ms)
                 durations.append(sample.duration_ms)
+
+                # Collect hardware metrics if available
+                if result.hardware_metrics:
+                    hardware_metrics_list.append(result.hardware_metrics)
 
                 if result.success:
                     metrics = compute_sample_metrics(
@@ -210,6 +251,7 @@ def run(
                         metrics,
                         result.inference_time_ms,
                         sample.duration_ms,
+                        hardware_metrics=result.hardware_metrics,
                     )
                 else:
                     failed_count += 1
@@ -230,8 +272,12 @@ def run(
         failed_count,
     )
 
+    # Add hardware metrics to aggregate if available
+    if hardware_metrics_list:
+        aggregate.hardware = compute_aggregate_hardware_metrics(hardware_metrics_list)
+
     # Write summary
-    write_summary(summary_path, config, aggregate)
+    write_summary(summary_path, config, aggregate, system_info=system_info)
 
     # Print summary
     print_summary(aggregate, console)
