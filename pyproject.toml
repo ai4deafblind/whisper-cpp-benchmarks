@@ -1,0 +1,21 @@
+[project]
+name = "whisper-cpp-benchmarks"
+version = "0.1.0"
+description = "CLI tool to benchmark Whisper.cpp transcription accuracy against Common Voice datasets"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "jiwer>=3.0.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+whisper-bench = "whisper_bench.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/whisper_bench"]

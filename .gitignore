@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Datasets (Mozilla Common Voice)
+datasets/*
+!datasets/.gitkeep
+
+# Benchmark results
+benchmarks/*
+!benchmarks/.gitkeep
+
