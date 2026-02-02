@@ -42,7 +42,6 @@ def run_whisper(
     cmd = [
         str(config.whisper_cli),
         "-m", str(config.model_path),
-        "-l", config.language,
         "-f", str(sample.audio_path),
         "-oj",  # JSON output
         "-np",  # No prints (progress, etc.)
@@ -51,8 +50,38 @@ def run_whisper(
         "-of", str(output_base),
     ]
 
+    # Language handling
+    if config.auto_detect_language:
+        cmd.extend(["-l", "auto"])
+    else:
+        cmd.extend(["-l", config.language])
+
     if config.no_gpu:
         cmd.append("-ng")
+
+    # Non-speech suppression
+    if config.suppress_non_speech:
+        cmd.append("-sns")
+    if config.no_speech_threshold is not None:
+        cmd.extend(["-nth", str(config.no_speech_threshold)])
+
+    # VAD options
+    if config.vad_enabled:
+        cmd.append("--vad")
+    if config.vad_model_path is not None:
+        cmd.extend(["-vm", str(config.vad_model_path)])
+    if config.vad_threshold is not None:
+        cmd.extend(["-vt", str(config.vad_threshold)])
+    if config.vad_min_speech_duration_ms is not None:
+        cmd.extend(["-vspd", str(config.vad_min_speech_duration_ms)])
+    if config.vad_min_silence_duration_ms is not None:
+        cmd.extend(["-vsd", str(config.vad_min_silence_duration_ms)])
+    if config.vad_max_speech_duration_s is not None:
+        cmd.extend(["-vmsd", str(config.vad_max_speech_duration_s)])
+    if config.vad_speech_pad_ms is not None:
+        cmd.extend(["-vp", str(config.vad_speech_pad_ms)])
+    if config.vad_samples_overlap is not None:
+        cmd.extend(["-vo", str(config.vad_samples_overlap)])
 
     # Set up resource monitoring if enabled
     monitor = None

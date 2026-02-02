@@ -21,11 +21,45 @@ class WhisperConfig:
     no_gpu: bool = False
     whisper_cli: Path = Path("/home/rizal/whisper.cpp/build/bin/whisper-cli")
 
+    # Auto-detect language
+    auto_detect_language: bool = False
+
+    # Non-speech suppression
+    suppress_non_speech: bool = False
+    no_speech_threshold: float | None = None  # whisper.cpp default: 0.60
+
+    # VAD options
+    vad_enabled: bool = False
+    vad_model_path: Path | None = None
+    vad_threshold: float | None = None  # default: 0.50
+    vad_min_speech_duration_ms: int | None = None  # default: 250
+    vad_min_silence_duration_ms: int | None = None  # default: 100
+    vad_max_speech_duration_s: float | None = None  # default: unlimited
+    vad_speech_pad_ms: int | None = None  # default: 30
+    vad_samples_overlap: float | None = None  # default: 0.10
+
     def __post_init__(self) -> None:
         if not self.model_path.exists():
             raise FileNotFoundError(f"Model not found: {self.model_path}")
         if not self.whisper_cli.exists():
             raise FileNotFoundError(f"whisper-cli not found: {self.whisper_cli}")
+
+        # VAD validation
+        if self.vad_enabled and self.vad_model_path is None:
+            raise ValueError("vad_model_path is required when vad_enabled=True")
+        if self.vad_model_path is not None and not self.vad_model_path.exists():
+            raise FileNotFoundError(f"VAD model not found: {self.vad_model_path}")
+
+        # Threshold validation
+        if self.no_speech_threshold is not None:
+            if not 0.0 <= self.no_speech_threshold <= 1.0:
+                raise ValueError("no_speech_threshold must be between 0.0 and 1.0")
+        if self.vad_threshold is not None:
+            if not 0.0 <= self.vad_threshold <= 1.0:
+                raise ValueError("vad_threshold must be between 0.0 and 1.0")
+        if self.vad_samples_overlap is not None:
+            if not 0.0 <= self.vad_samples_overlap <= 1.0:
+                raise ValueError("vad_samples_overlap must be between 0.0 and 1.0")
 
 
 @dataclass(frozen=True)

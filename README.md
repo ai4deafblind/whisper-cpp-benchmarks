@@ -35,6 +35,17 @@ whisper-bench run -m MODEL -d DATASET [OPTIONS]
 | `--run-name TEXT` | Custom run name | |
 | `--no-monitoring` | Disable hardware monitoring | |
 | `--monitor-interval INT` | Hardware sampling interval (ms) | `100` |
+| `--auto-detect-language` | Enable automatic language detection | |
+| `--suppress-non-speech` | Suppress non-speech tokens | |
+| `--no-speech-threshold FLOAT` | No-speech probability threshold | `0.60` |
+| `--vad` | Enable Voice Activity Detection | |
+| `--vad-model PATH` | VAD model path (required with `--vad`) | |
+| `--vad-threshold FLOAT` | VAD threshold | `0.50` |
+| `--vad-min-speech-duration-ms INT` | Minimum speech duration (ms) | `250` |
+| `--vad-min-silence-duration-ms INT` | Minimum silence duration (ms) | `100` |
+| `--vad-max-speech-duration-s FLOAT` | Maximum speech duration (s) | |
+| `--vad-speech-pad-ms INT` | Speech padding (ms) | `30` |
+| `--vad-samples-overlap FLOAT` | Samples overlap | `0.10` |
 
 ### Examples
 
@@ -50,6 +61,18 @@ whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ --stra
 
 # Custom output directory and run name
 whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ -o results --run-name baseline
+
+# Auto-detect language
+whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ --auto-detect-language
+
+# With non-speech suppression
+whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ \
+    --suppress-non-speech --no-speech-threshold 0.5
+
+# With VAD (Voice Activity Detection)
+whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ \
+    --vad --vad-model ~/whisper.cpp/models/ggml-silero-v5.1.2.bin \
+    --vad-threshold 0.6
 ```
 
 ## Output

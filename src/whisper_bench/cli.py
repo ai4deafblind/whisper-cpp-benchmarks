@@ -124,6 +124,68 @@ def main() -> None:
     default=100,
     help="Hardware monitoring sampling interval in ms [default: 100]",
 )
+@click.option(
+    "--auto-detect-language",
+    is_flag=True,
+    help="Enable automatic language detection (passes -l auto)",
+)
+@click.option(
+    "--suppress-non-speech",
+    is_flag=True,
+    help="Suppress non-speech tokens",
+)
+@click.option(
+    "--no-speech-threshold",
+    type=float,
+    default=None,
+    help="No-speech threshold [default: 0.60]",
+)
+@click.option(
+    "--vad",
+    is_flag=True,
+    help="Enable Voice Activity Detection",
+)
+@click.option(
+    "--vad-model",
+    type=click.Path(exists=True, path_type=Path),
+    help="VAD model path (required when --vad is enabled)",
+)
+@click.option(
+    "--vad-threshold",
+    type=float,
+    default=None,
+    help="VAD threshold [default: 0.50]",
+)
+@click.option(
+    "--vad-min-speech-duration-ms",
+    type=int,
+    default=None,
+    help="Min speech duration in ms [default: 250]",
+)
+@click.option(
+    "--vad-min-silence-duration-ms",
+    type=int,
+    default=None,
+    help="Min silence duration in ms [default: 100]",
+)
+@click.option(
+    "--vad-max-speech-duration-s",
+    type=float,
+    default=None,
+    help="Max speech duration in seconds",
+)
+@click.option(
+    "--vad-speech-pad-ms",
+    type=int,
+    default=None,
+    help="Speech padding in ms [default: 30]",
+)
+@click.option(
+    "--vad-samples-overlap",
+    type=float,
+    default=None,
+    help="Samples overlap [default: 0.10]",
+)
 def run(
     model: Path,
     dataset: Path,
@@ -138,17 +200,47 @@ def run(
     run_name: str | None,
     no_monitoring: bool,
     monitor_interval: int,
+    auto_detect_language: bool,
+    suppress_non_speech: bool,
+    no_speech_threshold: float | None,
+    vad: bool,
+    vad_model: Path | None,
+    vad_threshold: float | None,
+    vad_min_speech_duration_ms: int | None,
+    vad_min_silence_duration_ms: int | None,
+    vad_max_speech_duration_s: float | None,
+    vad_speech_pad_ms: int | None,
+    vad_samples_overlap: float | None,
 ) -> None:
     """Run benchmark against Common Voice dataset."""
     try:
         # Build configuration
-        whisper_kwargs = {
+        whisper_kwargs: dict = {
             "model_path": model,
             "language": language,
             "no_gpu": no_gpu,
+            "auto_detect_language": auto_detect_language,
+            "suppress_non_speech": suppress_non_speech,
+            "vad_enabled": vad,
         }
         if threads is not None:
             whisper_kwargs["threads"] = threads
+        if no_speech_threshold is not None:
+            whisper_kwargs["no_speech_threshold"] = no_speech_threshold
+        if vad_model is not None:
+            whisper_kwargs["vad_model_path"] = vad_model
+        if vad_threshold is not None:
+            whisper_kwargs["vad_threshold"] = vad_threshold
+        if vad_min_speech_duration_ms is not None:
+            whisper_kwargs["vad_min_speech_duration_ms"] = vad_min_speech_duration_ms
+        if vad_min_silence_duration_ms is not None:
+            whisper_kwargs["vad_min_silence_duration_ms"] = vad_min_silence_duration_ms
+        if vad_max_speech_duration_s is not None:
+            whisper_kwargs["vad_max_speech_duration_s"] = vad_max_speech_duration_s
+        if vad_speech_pad_ms is not None:
+            whisper_kwargs["vad_speech_pad_ms"] = vad_speech_pad_ms
+        if vad_samples_overlap is not None:
+            whisper_kwargs["vad_samples_overlap"] = vad_samples_overlap
 
         whisper_config = WhisperConfig(**whisper_kwargs)
         dataset_config = DatasetConfig(
