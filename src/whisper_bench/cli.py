@@ -186,6 +186,12 @@ def main() -> None:
     default=None,
     help="Samples overlap [default: 0.10]",
 )
+@click.option(
+    "--whisper-cli",
+    type=str,
+    default="whisper-cli",
+    help="Path to whisper-cli binary [default: whisper-cli (uses PATH)]",
+)
 def run(
     model: Path,
     dataset: Path,
@@ -211,6 +217,7 @@ def run(
     vad_max_speech_duration_s: float | None,
     vad_speech_pad_ms: int | None,
     vad_samples_overlap: float | None,
+    whisper_cli: str,
 ) -> None:
     """Run benchmark against Common Voice dataset."""
     try:
@@ -222,6 +229,7 @@ def run(
             "auto_detect_language": auto_detect_language,
             "suppress_non_speech": suppress_non_speech,
             "vad_enabled": vad,
+            "whisper_cli": whisper_cli,
         }
         if threads is not None:
             whisper_kwargs["threads"] = threads

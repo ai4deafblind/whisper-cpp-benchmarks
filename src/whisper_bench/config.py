@@ -1,5 +1,6 @@
 """Configuration dataclasses for benchmark runs."""
 
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -19,7 +20,7 @@ class WhisperConfig:
     threads: int = field(default_factory=lambda: max(1, os.cpu_count() // 2))
     beam_size: int = 5
     no_gpu: bool = False
-    whisper_cli: Path = Path("/home/rizal/whisper.cpp/build/bin/whisper-cli")
+    whisper_cli: str | Path = "whisper-cli"
 
     # Auto-detect language
     auto_detect_language: bool = False
@@ -41,8 +42,16 @@ class WhisperConfig:
     def __post_init__(self) -> None:
         if not self.model_path.exists():
             raise FileNotFoundError(f"Model not found: {self.model_path}")
-        if not self.whisper_cli.exists():
-            raise FileNotFoundError(f"whisper-cli not found: {self.whisper_cli}")
+
+        # whisper_cli validation
+        cli_path = self.whisper_cli if isinstance(self.whisper_cli, Path) else Path(self.whisper_cli)
+        if cli_path.is_absolute():
+            if not cli_path.exists():
+                raise FileNotFoundError(f"whisper-cli not found: {cli_path}")
+        else:
+            # Check if command is in PATH
+            if shutil.which(str(self.whisper_cli)) is None:
+                raise FileNotFoundError(f"whisper-cli not found in PATH: {self.whisper_cli}")
 
         # VAD validation
         if self.vad_enabled and self.vad_model_path is None:
