@@ -30,6 +30,7 @@ whisper-bench run -m MODEL -d DATASET [OPTIONS]
 | `--strategy` | Sampling: `stratified`, `random`, `sequential`, `all` | `stratified` |
 | `--seed INT` | Random seed | `42` |
 | `-t, --threads INT` | Thread count | CPU/2 |
+| `-bs, --beam-size INT` | Beam size for beam search | `5` |
 | `-o, --output PATH` | Output directory | `benchmarks` |
 | `--no-gpu` | Disable GPU acceleration | |
 | `--run-name TEXT` | Custom run name | |
@@ -73,6 +74,9 @@ whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ \
 whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ \
     --vad --vad-model ~/whisper.cpp/models/ggml-silero-v5.1.2.bin \
     --vad-threshold 0.6
+
+# Custom beam size (default is 5, use 1 for greedy decoding)
+whisper-bench run -m ~/whisper.cpp/models/ggml-base.bin -d ./datasets/id/ --beam-size 3
 ```
 
 ## Output
@@ -92,6 +96,8 @@ Each benchmark run creates a directory with:
   "wer": 0.25,
   "cer": 0.10,
   "inference_time_ms": 1234.5,
+  "encode_time_ms": 858.63,
+  "decode_time_ms": 375.87,
   "duration_ms": 3000,
   "hardware": {
     "cpu_percent_mean": 78.5,
@@ -108,6 +114,7 @@ Each benchmark run creates a directory with:
 - **Mean/Median WER/CER** - Per-sample statistics
 - **P90/P95 WER** - Percentile metrics for outlier analysis
 - **Real-time Factor** - Inference time / audio duration (lower is faster)
+- **Encode/Decode Time** - Breakdown of encoder (audio → latent) and decoder (latent → text) timing
 
 ### Hardware Metrics
 

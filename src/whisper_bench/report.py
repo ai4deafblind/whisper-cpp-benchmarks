@@ -24,6 +24,8 @@ def write_sample_result(
     inference_time_ms: float,
     duration_ms: float | None,
     hardware_metrics: SampleHardwareMetrics | None = None,
+    encode_time_ms: float | None = None,
+    decode_time_ms: float | None = None,
 ) -> None:
     """Append a single sample result to JSONL file."""
     record = {
@@ -44,6 +46,10 @@ def write_sample_result(
     }
     if hardware_metrics:
         record["hardware"] = asdict(hardware_metrics)
+    if encode_time_ms is not None:
+        record["encode_time_ms"] = encode_time_ms
+    if decode_time_ms is not None:
+        record["decode_time_ms"] = decode_time_ms
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -152,6 +158,17 @@ def print_summary(aggregate: AggregateMetrics, console: Console) -> None:
             f"{aggregate.total_inference_ms / 1000:.1f}s"
         )
         table.add_row("Real-time Factor", f"{aggregate.real_time_factor:.2f}x")
+
+    # Encoder/Decoder timing
+    if aggregate.encode_time_ms_mean is not None:
+        table.add_row("", "")
+        table.add_row("Mean Encode Time", f"{aggregate.encode_time_ms_mean:.1f} ms")
+        table.add_row("Median Encode Time", f"{aggregate.encode_time_ms_median:.1f} ms")
+    if aggregate.decode_time_ms_mean is not None:
+        if aggregate.encode_time_ms_mean is None:
+            table.add_row("", "")
+        table.add_row("Mean Decode Time", f"{aggregate.decode_time_ms_mean:.1f} ms")
+        table.add_row("Median Decode Time", f"{aggregate.decode_time_ms_median:.1f} ms")
 
     # Hardware metrics section
     if aggregate.hardware:

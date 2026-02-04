@@ -54,6 +54,10 @@ class AggregateMetrics:
     total_inference_ms: float
     real_time_factor: float
     hardware: AggregateHardwareMetrics | None = None
+    encode_time_ms_mean: float | None = None
+    encode_time_ms_median: float | None = None
+    decode_time_ms_mean: float | None = None
+    decode_time_ms_median: float | None = None
 
 
 def compute_sample_metrics(
@@ -111,6 +115,8 @@ def compute_aggregate_metrics(
     durations_ms: list[float | None],
     inference_times_ms: list[float],
     failed_count: int,
+    encode_times_ms: list[float | None] | None = None,
+    decode_times_ms: list[float | None] | None = None,
 ) -> AggregateMetrics:
     """Compute aggregate metrics across all samples."""
     if not sample_metrics:
@@ -133,6 +139,10 @@ def compute_aggregate_metrics(
             total_duration_ms=0.0,
             total_inference_ms=sum(inference_times_ms),
             real_time_factor=0.0,
+            encode_time_ms_mean=None,
+            encode_time_ms_median=None,
+            decode_time_ms_mean=None,
+            decode_time_ms_median=None,
         )
 
     # Corpus-level WER/CER (weighted by length)
@@ -179,6 +189,26 @@ def compute_aggregate_metrics(
         total_inference_ms / total_duration_ms if total_duration_ms > 0 else 0.0
     )
 
+    # Calculate encoder/decoder time statistics
+    encode_time_ms_mean = None
+    encode_time_ms_median = None
+    decode_time_ms_mean = None
+    decode_time_ms_median = None
+
+    if encode_times_ms:
+        valid_encode_times = [t for t in encode_times_ms if t is not None]
+        if valid_encode_times:
+            encode_time_ms_mean = sum(valid_encode_times) / len(valid_encode_times)
+            sorted_encode_times = sorted(valid_encode_times)
+            encode_time_ms_median = percentile(sorted_encode_times, 50)
+
+    if decode_times_ms:
+        valid_decode_times = [t for t in decode_times_ms if t is not None]
+        if valid_decode_times:
+            decode_time_ms_mean = sum(valid_decode_times) / len(valid_decode_times)
+            sorted_decode_times = sorted(valid_decode_times)
+            decode_time_ms_median = percentile(sorted_decode_times, 50)
+
     return AggregateMetrics(
         corpus_wer=corpus_wer,
         corpus_cer=corpus_cer,
@@ -198,4 +228,8 @@ def compute_aggregate_metrics(
         total_duration_ms=total_duration_ms,
         total_inference_ms=total_inference_ms,
         real_time_factor=real_time_factor,
+        encode_time_ms_mean=encode_time_ms_mean,
+        encode_time_ms_median=encode_time_ms_median,
+        decode_time_ms_mean=decode_time_ms_mean,
+        decode_time_ms_median=decode_time_ms_median,
     )

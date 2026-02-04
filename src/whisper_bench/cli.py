@@ -97,6 +97,12 @@ def main() -> None:
     help="Thread count [default: CPU/2]",
 )
 @click.option(
+    "-bs", "--beam-size",
+    type=int,
+    default=None,
+    help="Beam size for beam search [default: 5]",
+)
+@click.option(
     "-o", "--output",
     type=click.Path(path_type=Path),
     default=Path("benchmarks"),
@@ -201,6 +207,7 @@ def run(
     strategy: str,
     seed: int,
     threads: int | None,
+    beam_size: int | None,
     output: Path,
     no_gpu: bool,
     run_name: str | None,
@@ -233,6 +240,8 @@ def run(
         }
         if threads is not None:
             whisper_kwargs["threads"] = threads
+        if beam_size is not None:
+            whisper_kwargs["beam_size"] = beam_size
         if no_speech_threshold is not None:
             whisper_kwargs["no_speech_threshold"] = no_speech_threshold
         if vad_model is not None:
@@ -308,6 +317,8 @@ def run(
     hardware_metrics_list: list[SampleHardwareMetrics] = []
     durations: list[float | None] = []
     inference_times: list[float] = []
+    encode_times: list[float | None] = []
+    decode_times: list[float | None] = []
     failed_count = 0
 
     with tempfile.TemporaryDirectory() as work_dir:
@@ -334,6 +345,8 @@ def run(
                 )
                 inference_times.append(result.inference_time_ms)
                 durations.append(sample.duration_ms)
+                encode_times.append(result.encode_time_ms)
+                decode_times.append(result.decode_time_ms)
 
                 # Collect hardware metrics if available
                 if result.hardware_metrics:
@@ -352,6 +365,8 @@ def run(
                         result.inference_time_ms,
                         sample.duration_ms,
                         hardware_metrics=result.hardware_metrics,
+                        encode_time_ms=result.encode_time_ms,
+                        decode_time_ms=result.decode_time_ms,
                     )
                 else:
                     failed_count += 1
@@ -370,6 +385,8 @@ def run(
         durations,
         inference_times,
         failed_count,
+        encode_times,
+        decode_times,
     )
 
     # Add hardware metrics to aggregate if available

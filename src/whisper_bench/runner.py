@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import tempfile
 import time
@@ -17,6 +18,37 @@ if TYPE_CHECKING:
     from .system import SampleHardwareMetrics
 
 
+def parse_whisper_timings(stderr: str) -> tuple[float | None, float | None]:
+    """Parse encoder and decode times from whisper-cli stderr output.
+
+    Expected format:
+        whisper_print_timings:   encode time =  8582.63 ms / 1430.44 ms per layer
+        whisper_print_timings:   decode time =   436.16 ms / 72.69 ms per layer
+
+    Args:
+        stderr: Standard error output from whisper-cli
+
+    Returns:
+        (encode_time_ms, decode_time_ms) or (None, None) if not found
+    """
+    encode_time = None
+    decode_time = None
+
+    # Pattern: "whisper_print_timings:   encode time = <number> ms"
+    encode_pattern = r"whisper_print_timings:\s+encode time\s+=\s+([\d.]+)\s+ms"
+    decode_pattern = r"whisper_print_timings:\s+decode time\s+=\s+([\d.]+)\s+ms"
+
+    encode_match = re.search(encode_pattern, stderr)
+    decode_match = re.search(decode_pattern, stderr)
+
+    if encode_match:
+        encode_time = float(encode_match.group(1))
+    if decode_match:
+        decode_time = float(decode_match.group(1))
+
+    return encode_time, decode_time
+
+
 @dataclass
 class TranscriptionResult:
     """Result of a single transcription."""
@@ -27,6 +59,8 @@ class TranscriptionResult:
     success: bool
     error: str | None = None
     hardware_metrics: SampleHardwareMetrics | None = None
+    encode_time_ms: float | None = None
+    decode_time_ms: float | None = None
 
 
 def run_whisper(
@@ -44,7 +78,7 @@ def run_whisper(
         "-m", str(config.model_path),
         "-f", str(sample.audio_path),
         "-oj",  # JSON output
-        "-np",  # No prints (progress, etc.)
+        # "-np",  # REMOVED - we need stderr for timing output
         "-t", str(config.threads),
         "-bs", str(config.beam_size),
         "-of", str(output_base),
@@ -109,6 +143,9 @@ def run_whisper(
             monitor.stop()
             hardware_metrics = monitor.get_metrics()
 
+        # Parse encoder/decoder times from stderr
+        encode_time_ms, decode_time_ms = parse_whisper_timings(result.stderr)
+
         if result.returncode != 0:
             return TranscriptionResult(
                 clip_id=sample.clip_id,
@@ -117,6 +154,8 @@ def run_whisper(
                 success=False,
                 error=f"whisper-cli failed: {result.stderr}",
                 hardware_metrics=hardware_metrics,
+                encode_time_ms=encode_time_ms,
+                decode_time_ms=decode_time_ms,
             )
 
         # Parse JSON output
@@ -129,6 +168,8 @@ def run_whisper(
                 success=False,
                 error=f"JSON output not found: {json_path}",
                 hardware_metrics=hardware_metrics,
+                encode_time_ms=encode_time_ms,
+                decode_time_ms=decode_time_ms,
             )
 
         with open(json_path) as f:
@@ -148,6 +189,8 @@ def run_whisper(
             inference_time_ms=elapsed_ms,
             success=True,
             hardware_metrics=hardware_metrics,
+            encode_time_ms=encode_time_ms,
+            decode_time_ms=decode_time_ms,
         )
 
     except subprocess.TimeoutExpired:
@@ -162,6 +205,8 @@ def run_whisper(
             success=False,
             error="Timeout after 300 seconds",
             hardware_metrics=hardware_metrics,
+            encode_time_ms=None,
+            decode_time_ms=None,
         )
     except Exception as e:
         elapsed_ms = (time.perf_counter() - start_time) * 1000
@@ -175,4 +220,6 @@ def run_whisper(
             success=False,
             error=str(e),
             hardware_metrics=hardware_metrics,
+            encode_time_ms=None,
+            decode_time_ms=None,
         )
