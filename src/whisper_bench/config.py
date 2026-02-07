@@ -84,20 +84,60 @@ class DatasetConfig:
     def __post_init__(self) -> None:
         if not self.dataset_path.exists():
             raise FileNotFoundError(f"Dataset not found: {self.dataset_path}")
-        tsv_path = self.dataset_path / f"{self.split}.tsv"
-        if not tsv_path.exists():
-            raise FileNotFoundError(f"Split file not found: {tsv_path}")
+        # Validate that data file exists
+        if not self.data_file_path.exists():
+            raise FileNotFoundError(f"Data file not found: {self.data_file_path}")
+
+    @property
+    def data_file_path(self) -> Path:
+        """Find the data file (CSV or TSV) for the split."""
+        # Try split-specific files first (e.g., test.tsv, test.csv)
+        for ext in [".tsv", ".csv"]:
+            candidate = self.dataset_path / f"{self.split}{ext}"
+            if candidate.exists():
+                return candidate
+        # Try Common Voice v24 pattern: commonvoice-v24_{lang}.csv
+        csv_files = list(self.dataset_path.glob("commonvoice-v24_*.csv"))
+        if csv_files:
+            return csv_files[0]
+        # Try any CSV file in the directory
+        csv_files = list(self.dataset_path.glob("*.csv"))
+        if csv_files:
+            return csv_files[0]
+        raise FileNotFoundError(f"No data file found for split '{self.split}'")
+
+    @property
+    def file_format(self) -> Literal["tsv", "csv"]:
+        """Detect file format from extension."""
+        return "csv" if self.data_file_path.suffix == ".csv" else "tsv"
+
+    @property
+    def delimiter(self) -> str:
+        """Get delimiter based on file format."""
+        return "," if self.file_format == "csv" else "\t"
 
     @property
     def tsv_path(self) -> Path:
-        return self.dataset_path / f"{self.split}.tsv"
+        """Alias for data_file_path for backward compatibility."""
+        return self.data_file_path
 
     @property
     def clips_dir(self) -> Path:
-        return self.dataset_path / "clips"
+        """Find audio directory (clips/ or audio_files/)."""
+        for name in ["clips", "audio_files"]:
+            candidate = self.dataset_path / name
+            if candidate.exists() and candidate.is_dir():
+                return candidate
+        return self.dataset_path / "clips"  # default
 
     @property
     def durations_path(self) -> Path:
+        """Path to durations file (TSV or CSV)."""
+        # Try CSV first if dataset is CSV format
+        if self.file_format == "csv":
+            csv_path = self.dataset_path / "clip_durations.csv"
+            if csv_path.exists():
+                return csv_path
         return self.dataset_path / "clip_durations.tsv"
 
 

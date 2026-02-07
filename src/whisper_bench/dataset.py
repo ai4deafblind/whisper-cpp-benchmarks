@@ -18,14 +18,14 @@ class Sample:
     duration_ms: int | None = None
 
 
-def load_durations(durations_path: Path) -> dict[str, int]:
-    """Load clip durations from clip_durations.tsv."""
+def load_durations(durations_path: Path, delimiter: str = "\t") -> dict[str, int]:
+    """Load clip durations from TSV or CSV file."""
     durations: dict[str, int] = {}
     if not durations_path.exists():
         return durations
 
     with open(durations_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t")
+        reader = csv.DictReader(f, delimiter=delimiter)
         for row in reader:
             # Handle both "clip" and "path" column names
             clip_name = row.get("clip") or row.get("path", "")
@@ -39,12 +39,14 @@ def load_durations(durations_path: Path) -> dict[str, int]:
 
 
 def load_samples(config: DatasetConfig) -> list[Sample]:
-    """Load all samples from the dataset TSV."""
-    durations = load_durations(config.durations_path)
+    """Load all samples from the dataset (CSV or TSV)."""
+    # Detect delimiter for durations file based on its extension
+    durations_delimiter = "," if config.durations_path.suffix == ".csv" else "\t"
+    durations = load_durations(config.durations_path, delimiter=durations_delimiter)
 
     samples: list[Sample] = []
-    with open(config.tsv_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t")
+    with open(config.data_file_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter=config.delimiter)
         for row in reader:
             clip_name = row.get("path", "")
             sentence = row.get("sentence", "")
@@ -140,7 +142,7 @@ def get_samples(config: DatasetConfig) -> list[Sample]:
     all_samples = load_samples(config)
 
     if not all_samples:
-        raise ValueError(f"No valid samples found in {config.tsv_path}")
+        raise ValueError(f"No valid samples found in {config.data_file_path}")
 
     strategy = config.sampling_strategy
     n = config.sample_size
