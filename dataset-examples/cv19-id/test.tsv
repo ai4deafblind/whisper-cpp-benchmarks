@@ -1,0 +1,6 @@
+client_id	path	sentence_id	sentence	sentence_domain	up_votes	down_votes	age	gender	accents	variant	locale	segment
+00f046cd1abd7e	common_voice_id_20000001.mp3	05e82b3c6f23	Dia tidak sepenuhnya mempercayaiku.		2	0					id
+018b3f1a0a941a	common_voice_id_20000002.mp3	dd457d82f974	Aku juga tidak mengerti.		2	0					id
+02a1b3c5d7e9f1	common_voice_id_20000003.mp3	a1b2c3d4e5f6	Perpustakaan itu buka setiap hari Senin sampai Jumat.		3	0	twenties	male_masculine			id
+03b2c4d6e8f0a2	common_voice_id_20000004.mp3	b2c3d4e5f6a7	Mereka berencana mengunjungi museum besok pagi.		2	0	thirties	female_feminine			id
+04c3d5e7f9a1b3	common_voice_id_20000005.mp3	c3d4e5f6a7b8	Hujan turun sangat deras sore ini.		4	0	teens	male_masculine			id

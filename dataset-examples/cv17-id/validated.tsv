@@ -1,0 +1,8 @@
+client_id	path	sentence	up_votes	down_votes	age	gender	accent	locale	segment
+a1b2c3d4e5f6	common_voice_id_10000001.mp3	Saya pergi ke sekolah setiap hari.	2	0	twenties	male		id
+b2c3d4e5f6a1	common_voice_id_10000002.mp3	Mereka sedang bermain di taman.	3	0	thirties	female		id
+c3d4e5f6a1b2	common_voice_id_10000003.mp3	Cuaca hari ini sangat cerah.	2	0			id
+d4e5f6a1b2c3	common_voice_id_10000004.mp3	Ibu memasak nasi goreng untuk makan malam.	4	0	fourties	female		id
+e5f6a1b2c3d4	common_voice_id_10000005.mp3	Kami akan pergi berlibur minggu depan.	2	1	twenties	male		id
+f6a1b2c3d4e5	common_voice_id_10000006.mp3	Tolong ambilkan buku itu.	2	0	teens	male		id
+a2b3c4d5e6f7	common_voice_id_10000007.mp3	Dia bekerja di rumah sakit.	3	0	thirties	female		id

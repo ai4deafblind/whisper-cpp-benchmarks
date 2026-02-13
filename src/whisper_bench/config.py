@@ -81,6 +81,14 @@ class DatasetConfig:
     sampling_strategy: SamplingStrategy = "stratified"
     seed: int = 42
 
+    # Column mapping overrides
+    path_column: str = "path"
+    sentence_column: str = "sentence"
+    audio_dir: str | None = None
+    duration_file: str | None = None
+    duration_column: str | None = None
+    clip_id_column: str | None = None
+
     def __post_init__(self) -> None:
         if not self.dataset_path.exists():
             raise FileNotFoundError(f"Dataset not found: {self.dataset_path}")
@@ -124,6 +132,8 @@ class DatasetConfig:
     @property
     def clips_dir(self) -> Path:
         """Find audio directory (clips/ or audio_files/)."""
+        if self.audio_dir is not None:
+            return self.dataset_path / self.audio_dir
         for name in ["clips", "audio_files"]:
             candidate = self.dataset_path / name
             if candidate.exists() and candidate.is_dir():
@@ -133,6 +143,8 @@ class DatasetConfig:
     @property
     def durations_path(self) -> Path:
         """Path to durations file (TSV or CSV)."""
+        if self.duration_file is not None:
+            return self.dataset_path / self.duration_file
         # Try CSV first if dataset is CSV format
         if self.file_format == "csv":
             csv_path = self.dataset_path / "clip_durations.csv"

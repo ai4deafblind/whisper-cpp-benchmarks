@@ -1,6 +1,5 @@
 """Click CLI interface for whisper-bench."""
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -17,13 +16,13 @@ from rich.progress import (
 )
 
 from .config import BenchmarkConfig, DatasetConfig, WhisperConfig
-from .dataset import get_samples
+from .dataset import get_samples, infer_language, validate_dataset
 from .metrics import (
-    AggregateMetrics,
     SampleMetrics,
     compute_aggregate_metrics,
     compute_sample_metrics,
 )
+from .registry import resolve_dataset
 from .report import (
     print_summary,
     write_failed_result,
@@ -57,19 +56,19 @@ def main() -> None:
 )
 @click.option(
     "-d", "--dataset",
-    type=click.Path(exists=True, path_type=Path),
+    type=str,
     required=True,
-    help="Common Voice dataset directory",
+    help="Dataset directory path or registry name from datasets.toml",
 )
 @click.option(
     "-l", "--language",
-    default="id",
-    help="Language code [default: id]",
+    default=None,
+    help="Language code [default: from registry or 'id']",
 )
 @click.option(
     "-s", "--split",
     type=click.Choice(["test", "dev", "train", "validated"]),
-    default="test",
+    default=None,
     help="Dataset split [default: test]",
 )
 @click.option(
@@ -198,11 +197,23 @@ def main() -> None:
     default="whisper-cli",
     help="Path to whisper-cli binary [default: whisper-cli (uses PATH)]",
 )
+@click.option(
+    "--path-column",
+    type=str,
+    default=None,
+    help="Column name for audio file paths [default: path]",
+)
+@click.option(
+    "--sentence-column",
+    type=str,
+    default=None,
+    help="Column name for reference text [default: sentence]",
+)
 def run(
     model: Path,
-    dataset: Path,
-    language: str,
-    split: str,
+    dataset: str,
+    language: str | None,
+    split: str | None,
     samples: int,
     strategy: str,
     seed: int,
@@ -225,13 +236,47 @@ def run(
     vad_speech_pad_ms: int | None,
     vad_samples_overlap: float | None,
     whisper_cli: str,
+    path_column: str | None,
+    sentence_column: str | None,
 ) -> None:
     """Run benchmark against Common Voice dataset."""
     try:
-        # Build configuration
+        # Resolve dataset reference (path or registry name)
+        try:
+            dataset_kwargs, resolved_language = resolve_dataset(
+                dataset,
+                split=split,
+                language=language,
+                path_column=path_column,
+                sentence_column=sentence_column,
+            )
+        except (FileNotFoundError, KeyError) as e:
+            console.print(f"[red]Error:[/red] {e}")
+            raise SystemExit(1)
+
+        # Merge resolved kwargs with sampling options
+        dataset_kwargs["sample_size"] = samples
+        dataset_kwargs["sampling_strategy"] = strategy
+        dataset_kwargs["seed"] = seed
+        # Apply default split if not set by CLI or registry
+        if "split" not in dataset_kwargs:
+            dataset_kwargs["split"] = "test"
+
+        dataset_config = DatasetConfig(**dataset_kwargs)
+
+        # Infer language if not explicitly set (CLI -l or registry)
+        if not resolved_language:
+            resolved_language = infer_language(dataset_config)
+            if not resolved_language:
+                console.print(
+                    "[yellow]Warning:[/yellow] Could not detect language from dataset, defaulting to 'id'"
+                )
+                resolved_language = "id"
+
+        # Build whisper configuration
         whisper_kwargs: dict = {
             "model_path": model,
-            "language": language,
+            "language": resolved_language,
             "no_gpu": no_gpu,
             "auto_detect_language": auto_detect_language,
             "suppress_non_speech": suppress_non_speech,
@@ -260,13 +305,7 @@ def run(
             whisper_kwargs["vad_samples_overlap"] = vad_samples_overlap
 
         whisper_config = WhisperConfig(**whisper_kwargs)
-        dataset_config = DatasetConfig(
-            dataset_path=dataset,
-            split=split,
-            sample_size=samples,
-            sampling_strategy=strategy,
-            seed=seed,
-        )
+
         config = BenchmarkConfig(
             whisper=whisper_config,
             dataset=dataset_config,
@@ -276,6 +315,20 @@ def run(
     except FileNotFoundError as e:
         console.print(f"[red]Error:[/red] {e}")
         raise SystemExit(1)
+
+    # Pre-run validation
+    validation = validate_dataset(dataset_config)
+    for error in validation.errors:
+        console.print(f"[red]Error:[/red] {error}")
+    for warning in validation.warnings:
+        console.print(f"[yellow]Warning:[/yellow] {warning}")
+    if not validation.ok:
+        raise SystemExit(1)
+    if validation.total_rows > 0:
+        console.print(
+            f"Found [bold]{validation.audio_found}/{validation.total_rows}[/bold] "
+            f"audio files in {dataset_config.clips_dir}"
+        )
 
     # Create output directory
     run_dir = config.get_run_dir()
@@ -291,7 +344,7 @@ def run(
 
     console.print(f"[bold]Model:[/bold] {model}")
     console.print(f"[bold]Dataset:[/bold] {dataset}")
-    console.print(f"[bold]Split:[/bold] {split}")
+    console.print(f"[bold]Split:[/bold] {dataset_config.split}")
     console.print(f"[bold]Strategy:[/bold] {strategy}")
     console.print(f"[bold]Output:[/bold] {run_dir}")
     if system_info:
@@ -309,7 +362,14 @@ def run(
             console.print(f"[red]Error:[/red] {e}")
             raise SystemExit(1)
 
-    console.print(f"Loaded [bold]{len(dataset_samples)}[/bold] samples")
+    loaded_count = len(dataset_samples)
+    console.print(f"Loaded [bold]{loaded_count}[/bold] samples")
+    if strategy == "all" and validation.audio_found > 0 and loaded_count < validation.audio_found:
+        diff = validation.audio_found - loaded_count
+        console.print(
+            f"[yellow]Warning:[/yellow] {diff} fewer samples than expected "
+            f"(empty columns or missing audio)"
+        )
     console.print()
 
     # Run transcription
@@ -400,6 +460,133 @@ def run(
     print_summary(aggregate, console)
 
     console.print(f"[dim]Results saved to {run_dir}[/dim]")
+
+
+@main.command()
+@click.option(
+    "-d", "--dataset",
+    type=str,
+    required=True,
+    help="Dataset directory path or registry name from datasets.toml",
+)
+@click.option(
+    "-s", "--split",
+    type=click.Choice(["test", "dev", "train", "validated"]),
+    default=None,
+    help="Dataset split [default: test]",
+)
+@click.option(
+    "--path-column",
+    type=str,
+    default=None,
+    help="Column name for audio file paths [default: path]",
+)
+@click.option(
+    "--sentence-column",
+    type=str,
+    default=None,
+    help="Column name for reference text [default: sentence]",
+)
+def validate(
+    dataset: str,
+    split: str | None,
+    path_column: str | None,
+    sentence_column: str | None,
+) -> None:
+    """Validate a dataset configuration and report issues."""
+    try:
+        dataset_kwargs, resolved_language = resolve_dataset(
+            dataset,
+            split=split,
+            language=None,
+            path_column=path_column,
+            sentence_column=sentence_column,
+        )
+    except (FileNotFoundError, KeyError) as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    # Apply default split if not set
+    if "split" not in dataset_kwargs:
+        dataset_kwargs["split"] = "test"
+
+    try:
+        dataset_config = DatasetConfig(**dataset_kwargs)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+    # Infer language if not explicitly set (registry)
+    if not resolved_language:
+        resolved_language = infer_language(dataset_config)
+        if not resolved_language:
+            console.print(
+                "[yellow]Warning:[/yellow] Could not detect language from dataset, defaulting to 'id'"
+            )
+            resolved_language = "id"
+
+    console.print(f"[bold]Dataset path:[/bold] {dataset_config.dataset_path}")
+    console.print(f"[bold]Language:[/bold] {resolved_language}")
+    console.print(f"[bold]Split:[/bold] {dataset_config.split}")
+
+    try:
+        console.print(f"[bold]Data file:[/bold] {dataset_config.data_file_path}")
+    except FileNotFoundError:
+        pass  # validate_dataset will catch this
+
+    console.print(f"[bold]Audio directory:[/bold] {dataset_config.clips_dir}")
+    console.print(f"[bold]Path column:[/bold] {dataset_config.path_column}")
+    console.print(f"[bold]Sentence column:[/bold] {dataset_config.sentence_column}")
+    console.print()
+
+    result = validate_dataset(dataset_config)
+
+    # Print errors
+    for error in result.errors:
+        console.print(f"[red]FAIL[/red] {error}")
+
+    # Print warnings
+    for warning in result.warnings:
+        console.print(f"[yellow]WARN[/yellow] {warning}")
+
+    # Print audio coverage
+    if result.total_rows > 0:
+        console.print(
+            f"\n[bold]Audio coverage:[/bold] {result.audio_found}/{result.total_rows} files found"
+        )
+
+    # Print missing files
+    if result.missing_files:
+        console.print(f"\n[bold]Missing files (first {len(result.missing_files)}):[/bold]")
+        for f in result.missing_files:
+            console.print(f"  {f}")
+
+    # Duration file status
+    if dataset_config.durations_path.exists():
+        console.print(f"\n[bold]Duration file:[/bold] {dataset_config.durations_path} [green]found[/green]")
+    else:
+        # Check for inline duration column in data file
+        from .dataset import INLINE_DURATION_COLUMNS
+        try:
+            with open(dataset_config.data_file_path, newline="", encoding="utf-8") as f:
+                import csv as _csv
+                reader = _csv.DictReader(f, delimiter=dataset_config.delimiter)
+                data_headers = reader.fieldnames or []
+            inline_col = next((c for c in INLINE_DURATION_COLUMNS if c in data_headers), None)
+            if inline_col:
+                console.print(f"\n[bold]Duration source:[/bold] inline column '{inline_col}' [green]found[/green]")
+            else:
+                console.print(f"\n[bold]Duration file:[/bold] {dataset_config.durations_path.name} [yellow]not found[/yellow]")
+        except (FileNotFoundError, OSError):
+            console.print(f"\n[bold]Duration file:[/bold] {dataset_config.durations_path.name} [yellow]not found[/yellow]")
+
+    # Overall result
+    console.print()
+    if result.ok:
+        console.print("[green bold]PASS[/green bold] Dataset validation passed.")
+    else:
+        console.print("[red bold]FAIL[/red bold] Dataset validation failed.")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

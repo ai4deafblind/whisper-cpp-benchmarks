@@ -12,6 +12,11 @@ wheels/
 # Datasets (Mozilla Common Voice)
 datasets/*
 !datasets/.gitkeep
+!datasets-examples/
+datasets-examples/*/clips/*
+datasets-examples/*/audio_files/*
+datasets-examples/*/wavs/*
+!datasets-examples/**/.gitkeep
 
 # Benchmark results
 benchmarks/*

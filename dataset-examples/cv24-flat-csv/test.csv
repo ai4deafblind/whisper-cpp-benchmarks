@@ -1,0 +1,6 @@
+,client_id,path,sentence_id,sentence,sentence_domain,up_votes,down_votes,age,gender,accents,variant,locale,segment,duration_ms
+10,a1b2c3d4,common_voice_id_40000001.mp3,s1e2n3t4,Hari ini cuaca sangat panas.,,2,0,twenties,male_masculine,,,id,,3.120
+21,b2c3d4e5,common_voice_id_40000002.mp3,s2e3n4t5,Kucing itu tidur di atas meja.,,3,0,thirties,female_feminine,,,id,,2.760
+32,c3d4e5f6,common_voice_id_40000003.mp3,s3e4n5t6,Mereka akan berangkat ke Bali besok siang.,,2,0,teens,male_masculine,,,id,,4.440
+43,d4e5f6a7,common_voice_id_40000004.mp3,s4e5n6t7,Tolong belikan saya roti dan susu dari toko.,,4,0,fourties,female_feminine,,,id,,4.920
+54,e5f6a7b8,common_voice_id_40000005.mp3,s5e6n7t8,Dia belajar bahasa Jepang di universitas.,,2,0,twenties,male_masculine,,,id,,3.600

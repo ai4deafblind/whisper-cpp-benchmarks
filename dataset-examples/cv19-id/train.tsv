@@ -1,0 +1,4 @@
+client_id	path	sentence_id	sentence	sentence_domain	up_votes	down_votes	age	gender	accents	variant	locale	segment
+07f6a8b0c2d4e6	common_voice_id_20000008.mp3	f6a7b8c9d0e1	Kereta api tiba tepat waktu.		2	0	thirties	male_masculine			id
+08a7b9c1d3e5f7	common_voice_id_20000009.mp3	a7b8c9d0e1f2	Dia sangat senang mendapat hadiah ulang tahun.		3	0	teens	female_feminine			id
+09b8c0d2e4f6a8	common_voice_id_20000010.mp3	b8c9d0e1f2a3	Restoran itu terkenal dengan masakan Padangnya.		2	0	twenties	male_masculine			id

@@ -3,7 +3,7 @@ name = "whisper-cpp-benchmarks"
 version = "0.1.0"
 description = "CLI tool to benchmark Whisper.cpp transcription accuracy against Common Voice datasets"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
     "jiwer>=3.0.0",
     "click>=8.0.0",

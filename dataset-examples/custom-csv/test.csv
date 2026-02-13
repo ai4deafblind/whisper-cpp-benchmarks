@@ -1,0 +1,6 @@
+file_path,transcript,speaker_id,language,split
+recording_001.wav,Selamat pagi semuanya.,spk_01,id,test
+recording_002.wav,Bagaimana kabar Anda hari ini?,spk_02,id,test
+recording_003.wav,Terima kasih banyak atas bantuannya.,spk_01,id,test
+recording_004.wav,Saya ingin memesan dua tiket kereta api.,spk_03,id,test
+recording_005.wav,Apakah Anda tahu jalan menuju stasiun?,spk_02,id,test

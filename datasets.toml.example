@@ -1,0 +1,52 @@
+# Dataset Registry for whisper-bench
+#
+# Place this file as:
+#   ./datasets.toml           (project directory)
+#   ~/.config/whisper-bench/datasets.toml  (user-wide)
+#
+# Then reference datasets by name:
+#   whisper-bench run -m MODEL -d cv19-id
+#   whisper-bench validate -d cv24-id
+
+# ── Common Voice v19 (TSV format, standard layout) ──────────────────────────
+[datasets.cv19-id]
+path = "~/datasets/cv-corpus-19.0-2024-09-13/id"
+language = "id"
+split = "test"
+# Uses default columns: path, sentence
+# Uses default audio dir: clips/
+
+# ── Common Voice v24 (CSV format, different structure) ───────────────────────
+[datasets.cv24-id]
+path = "~/datasets/commonvoice-v24"
+language = "id"
+format = "csv"
+split = "test"
+# CV v24 may use different column names
+# path_column = "file_path"
+# sentence_column = "transcript"
+audio_dir = "audio_files"
+
+# ── Custom preprocessed dataset (flat CSV) ───────────────────────────────────
+[datasets.custom-id]
+path = "~/datasets/my-custom-dataset"
+language = "id"
+format = "csv"
+split = "test"
+path_column = "file_path"        # column containing audio filenames
+sentence_column = "transcript"   # column containing reference text
+audio_dir = "wavs"               # directory containing audio files
+duration_file = "durations.csv"  # custom duration file name
+duration_column = "length_ms"    # column name in duration file
+clip_id_column = "filename"      # clip ID column in duration file
+
+# ── Multiple languages ───────────────────────────────────────────────────────
+# [datasets.cv19-en]
+# path = "~/datasets/cv-corpus-19.0-2024-09-13/en"
+# language = "en"
+# split = "test"
+#
+# [datasets.cv19-ja]
+# path = "~/datasets/cv-corpus-19.0-2024-09-13/ja"
+# language = "ja"
+# split = "test"
